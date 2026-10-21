@@ -1,0 +1,37 @@
+form:
+  type: DEMO_APPLICATION
+  version: "1.0"
+  template_path: Form.pdf
+  layout_path: templates/generated/form_layout.json
+model:
+  model_id: Qwen/Qwen3-VL-2B-Instruct-GGUF:Q4_K_M
+  model_path: models/Qwen3-VL-2B-Q4_K_M/Qwen3VL-2B-Instruct-Q4_K_M.gguf
+  projector_path: models/Qwen3-VL-2B-Q4_K_M/mmproj-Qwen3VL-2B-Instruct-Q8_0.gguf
+  server_path: runtime/llama.cpp/llama-server.exe
+  max_new_tokens: 1024
+  context_size: 8192
+  inference_timeout_seconds: 300
+paddle_model:
+  model_id: PaddlePaddle/PaddleOCR-VL-1.6-GGUF
+  model_path: models/PaddleOCR-VL-1.6-GGUF/PaddleOCR-VL-1.6-GGUF.gguf
+  projector_path: models/PaddleOCR-VL-1.6-GGUF/PaddleOCR-VL-1.6-GGUF-mmproj.gguf
+  server_path: runtime/llama.cpp/llama-server.exe
+  max_new_tokens: 1024
+  context_size: 4096
+  inference_timeout_seconds: 300
+ocr:
+  preferred_mode: template_aligned
+  enable_full_page_fallback: true
+  enable_template_reference_image: false
+  crop_padding_ratio: 0.12
+quality:
+  max_bytes: 15000000
+  min_width: 700
+  min_height: 900
+  min_blur: 35
+  min_brightness: 45
+  max_brightness: 225
+validation:
+  date_format: "%d/%m/%Y"
+  minimum_age: 0
+  maximum_age: 120

@@ -1,0 +1,11 @@
+# Python 3.11+; llama.cpp runs the GGUF model separately on CPU.
+streamlit>=1.40,<2
+requests>=2.32,<3
+huggingface-hub>=0.34,<2
+opencv-python-headless>=4.10,<5
+Pillow>=11,<13
+PyMuPDF>=1.24,<3
+pydantic>=2.9,<3
+PyYAML>=6,<7
+numpy>=1.26,<3
+pytest>=8,<10
