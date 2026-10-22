@@ -1,37 +1,43 @@
-# FormOCR
+# FormOCR — MOE FAS application form
 
-Streamlit demo for extracting handwritten **Date, Name, Age, and Gender** from the supplied one-page `Form.pdf`. Choose [Qwen3-VL-2B-Instruct Q4_K_M](https://huggingface.co/Qwen/Qwen3-VL-2B-Instruct-GGUF) or the official [PaddleOCR-VL-1.6 GGUF](https://huggingface.co/PaddlePaddle/PaddleOCR-VL-1.6-GGUF) when processing an image. Both run locally on CPU through [llama.cpp's server](https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md).
+Local Streamlit demo for extracting handwritten text from the supplied five-page `MOE_FAS_Application_Form.pdf`. It uses [RapidOCR](https://rapidai.github.io/RapidOCRDocs/main/en/install_usage/rapidocr/usage/) with PP-OCRv5 mobile detection and English recognition ONNX models on CPU. The models are downloaded once; processing needs no network connection.
 
 ## Windows setup
 
-Use 64-bit Python 3.11 or newer. From the repository root in PowerShell:
+Use 64-bit Python 3.11 or newer. In PowerShell, from the repository root:
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe scripts\download_model.py
-.\.venv\Scripts\python.exe scripts\download_paddle_model.py
-.\.venv\Scripts\python.exe scripts\install_llama_runtime.py
+.\.venv\Scripts\python.exe scripts\download_rapidocr_models.py
 .\.venv\Scripts\python.exe -m streamlit run app.py
 ```
 
-The download scripts need internet once. On this workspace, both GGUF models and the Windows CPU runtime have already been downloaded to `models/Qwen3-VL-2B-Q4_K_M/`, `models/PaddleOCR-VL-1.6-GGUF/`, and `runtime/llama.cpp/`. These directories are ignored by Git. Qwen's model and projector total about 1.45 GiB; PaddleOCR-VL's total about 1.69 GiB. No Hugging Face request is made while processing a form. You can disconnect after setup; the app starts a local `llama-server.exe` when OCR is needed. Switching models closes the previous server to conserve RAM. CPU inference may take time and memory, depending on image size.
+The download script verifies SHA-256 checksums and saves the ONNX files under `models/rapidocr-ppocrv5-en/`. That directory and `.venv/` are ignored by Git. On this workspace the models are already downloaded. To place the models elsewhere, set `FORM_OCR_DETECTOR_PATH` and `FORM_OCR_RECOGNIZER_PATH` in the shell or edit [config/app.yaml](config/app.yaml). [.env.example](.env.example) documents the variables; it is not loaded automatically.
 
-If PowerShell blocks activation, use `.\.venv\Scripts\python.exe` directly as above. Restart Streamlit after changing packages or model settings. To move the files, edit [config/app.yaml](config/app.yaml) or use the `FORM_OCR_MODEL_PATH` / `FORM_OCR_PADDLE_MODEL_PATH` and projector/server path variables in your shell. [.env.example](.env.example) lists the variables; it is not loaded automatically. The old Qwen 4B model, if present, is unused.
+## Form layout and fields
 
-## Workflow
+In **Template setup**, generate the layout from the supplied PDF, inspect the red boxes on pages 1–3, and save verification for each page. The generated layout is `templates/generated/form_layout.json` and contains 79 fields:
 
-1. In **Template setup**, click **Generate template from PDF**. This renders `Form.pdf` and creates `templates/generated/form_layout.json`.
-2. Inspect the red field regions and blue checkbox regions. Adjust the coordinates and click **Save verified coordinates**. Processing is disabled until you verify the template.
-3. In **Process form**, choose **OCR model** (Qwen3-VL or PaddleOCR-VL), upload a JPEG or PNG photo, select a mode, and click **Process image**. The status panel shows each processing stage and a live elapsed timer. After the first successful OCR in a session, it estimates remaining time from the previous run with that model and mode; this is approximate because image complexity and alignment can change. `auto` uses aligned crops for Qwen when possible, and the full page for PaddleOCR-VL because nearby crops can overlap printed answer lines. Poor image quality can stop processing before inference.
-4. Review the extraction and validation findings. `EMPTY` fields can be completed manually. `UNREADABLE`, `NOT_VISIBLE`, or ambiguous fields require a new photo. Confirmed crossed-out answers or both gender boxes selected require a new paper form.
-5. Confirm reviewed values to download final JSON. Uploading a replacement clears the previous attempt.
+| Page | Data |
+| --- | --- |
+| 1 | Submission school, applicant particulars, and five child/school rows |
+| 2 | Eight household member rows and total gross household income |
+| 3 | Declaration name/NRIC/signature and declaration date |
 
-The modules under `src/` are independent of Streamlit. `src/inference.py` starts the local server and sends images over loopback. Qwen returns structured JSON. PaddleOCR-VL uses its trained `OCR:` task, then the app maps transcribed labels and checkbox symbols to the form fields. A checkbox whose mark is not explicit in the OCR text is flagged as ambiguous. PaddleOCR-VL transcription does not reliably identify crossed-out handwriting, so review its output carefully. Pydantic contracts are in `src/core.py`; `ProcessingResult.model_json_schema()` gives the response schema. Debug data is excluded from the exported response.
+Pages 4–5 are annex instructions and contain no answer regions. Section II household rows can remain empty when the printed instructions say they do not apply. Only `applicant_date_of_birth` has the `date` type and must be a real date in `dd/mm/yyyy` format. Every other value, including ages, income, contact numbers and declaration date, is a string. There are no checkbox fields.
 
-## Configuration
+The reference layout is specific to this version of the PDF. If its printed cell positions change, update [src/template.py](src/template.py), regenerate the layout, and inspect it again. Regenerating clears verification. The layout is ignored by Git because it is a generated file.
 
-Edit [config/app.yaml](config/app.yaml) for model paths, token and context limits, inference timeout, crop padding, quality heuristics, date format, and allowed age range. The quality thresholds are screening heuristics. To use another PDF, replace `Form.pdf`, change the form type and version, and regenerate the template. The builder expects a **one-page** PDF with one unique printed label for each demo field. For another form type, update `src/template.py`'s label mapping and `src/core.py`'s form rules.
+## Process and review
+
+In **Process form**, choose **Upload files** or **Local file paths**. Provide either one completed PDF with pages 1–3 or three full-page images for pages 1, 2 and 3 in that order. For local paths, enter one path per line; relative paths start at the repository root, and absolute paths point to files on the machine running Streamlit. Both methods read the same original image bytes. Pages 4–5 in a PDF are ignored. The app checks quality, aligns image uploads with the blank reference, runs the local OCR engine on pages 1–3, and assigns OCR text to cell regions. A PDF rendered at the reference size uses its page geometry directly. The status panel shows each stage and elapsed time; after one run it shows the previous run duration as a rough reference.
+
+The preview displays the original image at its native size. PNG uploads stay lossless in the preview; use **Download original image** to compare it with the source file. The former 700×900 px check was an application heuristic, not a RapidOCR or PP-OCRv5 model limit. It has been removed. The app first aligns images with ORB, then tries SIFT for photographed or small page exports. Aligned OCR text is assigned to form fields. If alignment still fails, the app shows the raw transcript for manual review without assigning text to uncertain fields. OCR can miss or misread details. Reading by local path and enlarging a small crop do not increase its resolution. For the most reliable input, export the filled Word document as a complete PDF. For photos, capture each entire page including its corners in even light, hold the camera square to the page, use the camera's original resolution, and upload the original JPEG/PNG.
+
+Review every extracted value, especially handwritten text and the signature. OCR is a transcription aid and does not verify a handwritten signature. Empty optional cells remain empty strings in the final JSON. Required applicant fields and the first child row must be completed in review. Use **Confirm and generate JSON** to download the reviewed values.
+
+The `src/` modules can be used without Streamlit. `src/core.py` defines the result contracts and validation. The image quality thresholds in [config/app.yaml](config/app.yaml) are screening heuristics; photographs with poor alignment may need recapture.
 
 ## Tests
 
@@ -39,4 +45,4 @@ Edit [config/app.yaml](config/app.yaml) for model paths, token and context limit
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-Tests use deterministic inputs. Both models have been exercised locally on the supplied blank reference form. OCR quality on filled handwritten forms still needs evaluation with representative photos.
+The tests cover layout generation, field types, date validation, and OCR text assignment. The local models were also run on the blank supplied PDF. Recognition accuracy on completed handwriting still requires representative filled forms and human review.

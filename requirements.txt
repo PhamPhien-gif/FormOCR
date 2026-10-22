@@ -1,7 +1,8 @@
-# Python 3.11+; llama.cpp runs the GGUF model separately on CPU.
+# Python 3.11+; RapidOCR and ONNX Runtime run locally on CPU.
 streamlit>=1.40,<2
 requests>=2.32,<3
-huggingface-hub>=0.34,<2
+rapidocr>=3.10,<4
+onnxruntime>=1.22,<2
 opencv-python-headless>=4.10,<5
 Pillow>=11,<13
 PyMuPDF>=1.24,<3
